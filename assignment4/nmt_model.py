@@ -129,15 +129,15 @@ class NMT(nn.Module):
         combined_outputs = self.decode(
             enc_hiddens, enc_masks, dec_init_state, target_padded) # enc_hiddens用来计算attention，剩下两个用来初始化状态
         P = F.log_softmax(self.target_vocab_projection(
-            combined_outputs), dim=-1)  # (tht_length ,v_t)
+            combined_outputs), dim=-1)  # (tgt_len, b, h) -> (tgt_len, b, w_size)
 
         # Zero out, probabilities for which we have nothing in the target text
         target_masks = (target_padded != self.vocab.tgt['<pad>']).float()
 
         # Compute log probability of generating true target words
         target_gold_words_log_prob = torch.gather(
-            P, index=target_padded[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:]
-        scores = target_gold_words_log_prob.sum(dim=0)
+            P, index=target_padded[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:] # 对应元素相乘，相当于去除pad部分的结果
+        scores = target_gold_words_log_prob.sum(dim=0) # 求出每个句子的score
         return scores
 
     def encode(self, source_padded: torch.Tensor, source_lengths: List[int]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -280,7 +280,7 @@ class NMT(nn.Module):
             combined_outputs.append(o_t)
             o_prev = o_t
 
-        combined_outputs = torch.stack(combined_outputs, dim=0) # (tgt_len, h)
+        combined_outputs = torch.stack(combined_outputs, dim=0) # (tgt_len, b, h)
         # END YOUR CODE
 
         return combined_outputs
